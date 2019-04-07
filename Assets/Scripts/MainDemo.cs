@@ -19,7 +19,7 @@ public class MainDemo : MonoBehaviour
     public Color backgroundColor;
 
     public AudioClip trialSuccess;
-
+    public AudioClip missionComplete;
 
     private int trialCounter = 0;
     private bool fixationStarted;
@@ -31,6 +31,8 @@ public class MainDemo : MonoBehaviour
     private GameObject sightLine;
     private int currentDot;
 
+    private float[] intensities = {1f, 0.6f, 0.3f, 0.18f, 0.08f, 0.03f};
+
     void Start()
     {
         UnityEngine.Random.InitState(RNGSeed);
@@ -41,20 +43,28 @@ public class MainDemo : MonoBehaviour
         initDots();
         currentDot = 0;
         dots[currentDot].SetActive(true);
+        RenderSettings.skybox.SetFloat("_Exposure", 1f);
+        DynamicGI.UpdateEnvironment();
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (currentDot < dots.Length - 1)
+        if (other.GetComponent<CubeTracker>() != null)
         {
-            float cl = 1f - currentDot * 0.06f;
-            RenderSettings.ambientLight = new Color(cl, cl, cl);
-            dirLight.intensity = 2f - currentDot * 0.6f;
-            sound.Play();
-            dots[currentDot].SetActive(false);
-            currentDot++;
-            dots[currentDot].SetActive(true);
-            DynamicGI.UpdateEnvironment();
+
+            if (currentDot == dots.Length - 1)
+            {
+                sound.clip = missionComplete;
+                sound.Play();
+            }
+            else
+            {
+                sound.clip = trialSuccess;
+                sound.Play();
+            }
+                dots[currentDot].SetActive(false);
+            StartCoroutine(WaitThenIncrement(1f));
+
         }
     }
 
@@ -73,15 +83,15 @@ public class MainDemo : MonoBehaviour
     private bool[] trialsSuccessful;
     private void initDots()
     {
-        dots = new GameObject[20];
+        dots = new GameObject[6];
         trialsSuccessful = new bool[dots.Length];
         for(int i = 0; i < dots.Length; i++)
         {
-            dots[i] = newDot(20 + Random.Range(-5f, 5f), 2 + Random.Range(0, 5f), 20 + Random.Range(-5f, 5f));
+            dots[i] = newDot(20 + Random.Range(-3f, 3f), 2 + Random.Range(1f, 3f), 20 + Random.Range(-3f, 3f));
         }       
         for (int i = 0; i < dots.Length; i++)
             dots[i].SetActive(false);
-        new WaitForSeconds(1);
+        new WaitForSeconds(1f);
     }
 
     private GameObject newDot(float x, float y, float z)
@@ -92,6 +102,24 @@ public class MainDemo : MonoBehaviour
         dot.GetComponent<Renderer>().material.color = Color.blue;
         dot.transform.position = new Vector3(x, y, z);
         dot.GetComponent<BoxCollider>().isTrigger = true;
+        dot.AddComponent<CubeTracker>();
         return dot;
+    }
+
+    IEnumerator WaitThenIncrement(float second)
+    {
+        yield return new WaitForSeconds(second);        
+        currentDot++;
+        if (currentDot < dots.Length)
+        {
+
+            float cl = intensities[currentDot];
+            RenderSettings.ambientLight = new Color(cl, cl, cl);
+            RenderSettings.skybox.SetFloat("_Exposure", intensities[currentDot]);
+            RenderSettings.fogDensity = intensities[currentDot] * 0.05f;
+            dirLight.intensity = intensities[currentDot] * 2f;
+            DynamicGI.UpdateEnvironment();
+            dots[currentDot].SetActive(true);
+        }
     }
 }
